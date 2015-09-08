@@ -1,6 +1,0 @@
-# Need the ResultSet object. The writeAll(ResultSet, boolean) method is utilized for this. The first argument is the ResultSet 
-# which you want to write to CSV file. And the second argument is boolean which represents whether you want to write header 
-# columns (table column names) to file or not.
-
-java.sql.ResultSet myResultSet = getResultSetFromSomewhere();
-writer.writeAll(myResultSet, includeHeaders);
