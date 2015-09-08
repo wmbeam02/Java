@@ -1,0 +1,158 @@
+package iqfeed;
+
+import java.net.*;
+import java.io.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+
+public class IQFeed8 {
+    
+    BufferedReader in, sin;
+    BufferedWriter sout;
+    boolean exitFlag = false;
+        
+    public static Connection getConnection() throws Exception{
+        try{
+            String driver="com.mysql.jdbc.Driver";
+            String url = "jdbc:mysql://localhost:3306/test";
+            String username = "root";
+            String password = "password";
+            Class.forName(driver);
+            Connection con = DriverManager.getConnection(url, username, password);
+        return con;
+        }catch(Exception e){System.out.println(e);}
+        return null;
+    }
+    public static void insert(String time, String last, String volume, Connection con) throws Exception{
+        
+        try{
+            PreparedStatement insert = con.prepareStatement("INSERT INTO raw(time, last, volume) VALUES ('" + time + "', " + last + ", " + volume +")");
+            insert.executeUpdate();
+        }catch(Exception e){System.out.println(e);}
+        }
+      }
+    
+    class stream_thread extends Thread  {
+
+        public void run(){
+            String line;
+            String[] split;
+            String time;
+            String last;
+            String volume;
+            try {
+                Connection con = getConnection();
+                while ((line = sin.readLine()) != null) {
+                System.out.println(line);
+                if((line.indexOf("Q") >= 0) && (line.indexOf("@ES") >= 0)) {
+                    split = line.split(",", 6);
+                    time = split[4];
+                    last = split[2];
+                    volume = split[3];
+                    insert(time, last, volume, con);
+                    }
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(IQFeed8.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Exception ex) {
+                Logger.getLogger(IQFeed8.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
+            }
+        }
+    
+
+    void run() {
+        // Start IQConnect & IQFeed	
+        try {
+            System.out.println("Launching IQConnect.");
+            Runtime.getRuntime().exec("iqconnect.exe -product IQFEED_DEMO -version 1.0");
+            System.out.println("Verifying if IQConnect is connected to the server");
+            // verify everything is ready to send commands.
+            boolean bConnected = false;
+            // connect to the admin port.
+            Socket sockAdmin = new Socket(InetAddress.getByName("localhost"), 9300);
+            BufferedReader bufreadAdmin = new BufferedReader(new InputStreamReader(sockAdmin.getInputStream()));
+            BufferedWriter bufwriteAdmin = new BufferedWriter(new OutputStreamWriter(sockAdmin.getOutputStream()));
+            String strAdminLine = "";
+            // loop while we are still connected to the admin port or until we are connected
+            while (((strAdminLine = bufreadAdmin.readLine()) != null) && !bConnected) {
+                System.out.println(strAdminLine);
+                if (strAdminLine.indexOf(",Connected,") > -1) {
+                    System.out.println("IQConnect is connected to the server.");
+                    bConnected = true;
+                } else if (strAdminLine.indexOf(",Not Connected,") > -1) {
+                    System.out.println("IQConnect is Not Connected.\r\nSending connect command.");
+                    bufwriteAdmin.write("S,CONNECT\r\n");
+                    bufwriteAdmin.flush();
+                }
+            }
+            // cleanup admin port connection
+            sockAdmin.shutdownOutput();
+            sockAdmin.shutdownInput();
+            sockAdmin.close();
+            bufreadAdmin.close();
+            bufwriteAdmin.close();
+
+            // at this point, we are connected and the feed is ready.
+            System.out.println("Connecting to Level 1 port.");
+
+            String line;
+
+            // creates a socket connection to localhost (IP address 127.0.0.1) on port 5009.
+            // This is that port that IQFeed listens on for level1 requests. 
+            Socket s = new Socket(InetAddress.getByName("localhost"), 5009);
+
+            // create a buffer to read in socket data.
+            sin = new BufferedReader(new InputStreamReader(s.getInputStream()));
+            // create a buffer in which to send commands to IQFeed on. 
+            sout = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
+
+            // start a thread to receive socket data. 
+            stream_thread thread = new stream_thread();
+            thread.start();
+
+            sout.write("S,SET PROTOCOL,5.0\r\n");
+            sout.flush();
+            
+            sout.write("w@ESU15\r\n");
+            sout.flush();
+
+            in = new BufferedReader(new InputStreamReader(System.in));
+            boolean loop = true;
+            while (loop) {
+               
+                line = in.readLine();
+
+                sout.write(line + "\r\n");
+                sout.flush();
+                
+                if (line.trim().equals("x")) {
+
+                    sout.write("");
+                    sout.flush();
+                    loop = false;
+                    s.shutdownOutput();
+                    s.shutdownInput();
+                    s.close();
+                    break;
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println("Exiting application!\n");
+    }
+
+    public static void main(String args[]) {
+        IQFeed me = new IQFeed();
+        me.run();
+        
+    }
+}
