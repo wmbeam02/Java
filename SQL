@@ -35,7 +35,7 @@ public class MySQL3 {
         //port 3306 is what the video uses, need to check that
         String url = "jdbc:mysql://localhost:3306/test";
         String username = "root";
-        String password = "mysqlB00lzzba";
+        String password = "password";
         Class.forName(driver);
         
         Connection con = DriverManager.getConnection(url, username, password);
