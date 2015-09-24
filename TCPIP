@@ -1,4 +1,4 @@
-package iqfeed;
+package iqfeed8;
 
 import java.net.*;
 import java.io.*;
@@ -21,9 +21,11 @@ public class IQFeed8 {
             String driver="com.mysql.jdbc.Driver";
             String url = "jdbc:mysql://localhost:3306/test";
             String username = "root";
-            String password = "password";
+            String password = "mysqlB00lzzba";
             Class.forName(driver);
+        
             Connection con = DriverManager.getConnection(url, username, password);
+//        System.out.println("Connected");
         return con;
         }catch(Exception e){System.out.println(e);}
         return null;
@@ -31,11 +33,14 @@ public class IQFeed8 {
     public static void insert(String time, String last, String volume, Connection con) throws Exception{
         
         try{
+//            Connection con = getConnection();
             PreparedStatement insert = con.prepareStatement("INSERT INTO raw(time, last, volume) VALUES ('" + time + "', " + last + ", " + volume +")");
             insert.executeUpdate();
         }catch(Exception e){System.out.println(e);}
+        finally{
+//            System.out.println("Insert Completed");
         }
-      }
+    }
     
     class stream_thread extends Thread  {
 
@@ -55,6 +60,8 @@ public class IQFeed8 {
                     last = split[2];
                     volume = split[3];
                     insert(time, last, volume, con);
+//                    PreparedStatement insert = con.prepareStatement("INSERT INTO raw(time, last, volume) VALUES ('" + time + "', " + last + ", " + volume +")");
+//                    insert.executeUpdate();
                     }
                 }
             } catch (SQLException ex) {
@@ -102,6 +109,7 @@ public class IQFeed8 {
             // at this point, we are connected and the feed is ready.
             System.out.println("Connecting to Level 1 port.");
 
+            // String to hold what the user typed in.			
             String line;
 
             // creates a socket connection to localhost (IP address 127.0.0.1) on port 5009.
@@ -117,21 +125,24 @@ public class IQFeed8 {
             stream_thread thread = new stream_thread();
             thread.start();
 
+            // send the command to set the IQFeed protocol to 5.0
             sout.write("S,SET PROTOCOL,5.0\r\n");
             sout.flush();
             
-            sout.write("w@ESU15\r\n");
+            sout.write("w@ESZ15\r\n");
             sout.flush();
 
+            // create buffer to read in commands from the user.
             in = new BufferedReader(new InputStreamReader(System.in));
             boolean loop = true;
             while (loop) {
-               
+                // read in commands the user enters.
                 line = in.readLine();
 
                 sout.write(line + "\r\n");
                 sout.flush();
                 
+                // if we detect the exit command abort.
                 if (line.trim().equals("x")) {
 
                     sout.write("");
@@ -151,7 +162,7 @@ public class IQFeed8 {
     }
 
     public static void main(String args[]) {
-        IQFeed me = new IQFeed();
+        IQFeed8 me = new IQFeed8();
         me.run();
         
     }
